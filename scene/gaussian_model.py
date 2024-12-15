@@ -498,13 +498,24 @@ class GaussianModel:
 
         return optimizable_tensors
 
-    
+    ################################################################################
+    #################################### MCMC ######################################
+    ################################################################################
+
+    # updates the opacity and scaling parameters for the selected indices (idxs). 
+    # calls a CUDA function (compute_relocation_cuda) to compute the new values 
+    # based on the old values and a ratio (N=ratio[idxs, 0] + 1).
     def _update_params(self, idxs, ratio):
         new_opacity, new_scaling = compute_relocation_cuda(
             opacity_old=self.get_opacity[idxs, 0],
             scale_old=self.get_scaling[idxs],
             N=ratio[idxs, 0] + 1
         )
+        # it then clamps the new opacity values between 0.005 & JUST below 1. 
+        # ensuring that opacity remains within reasonable bounds.
+        # the opacity is then passed through an inverse activation function, 
+        # to be mapped back into useful range.
+        # the scaling values are similarly processed.
         new_opacity = torch.clamp(new_opacity.unsqueeze(-1), max=1.0 - torch.finfo(torch.float32).eps, min=0.005)
         new_opacity = self.inverse_opacity_activation(new_opacity)
         new_scaling = self.scaling_inverse_activation(new_scaling.reshape(-1, 3))
@@ -512,20 +523,30 @@ class GaussianModel:
         return self._xyz[idxs], self._features_dc[idxs], self._features_rest[idxs], new_opacity, new_scaling, self._rotation[idxs]
 
 
+    # sampling indices based on the given probabilities (probs),
+    # that is by normalizing the probabilities to sum to 1 (by dividing by their sum) 
+    # and then uses multinomial sampling to randomly pick num indices based on these normalized probabilities. 
+    # that is a key element of Monte Carlo sampling.
     def _sample_alives(self, probs, num, alive_indices=None):
         probs = probs / (probs.sum() + torch.finfo(torch.float32).eps)
         sampled_idxs = torch.multinomial(probs, num, replacement=True)
+        # if (alive_indices) is provided, the function uses those indices for resampling instead of the random ones. 
+        # then calculates the binned count (torch.bincount) of the sampled indices, which represents how many times each index was chosen. 
+        # this can be used to adjust the weight or importance of each Gaussian (like in importance sampling).
         if alive_indices is not None:
             sampled_idxs = alive_indices[sampled_idxs]
         ratio = torch.bincount(sampled_idxs).unsqueeze(-1)
         return sampled_idxs, ratio
     
 
+    # handling the relocation of dead Gaussians (those are no longer needed). 
+    # if no dead Gaussians are found (dead_mask.sum() == 0), the function returns early.
     def relocate_gs(self, dead_mask=None):
-
         if dead_mask.sum() == 0:
             return
 
+        # creating a mask for alive Gaussians (alive_mask), 
+        # then finds the indices of dead and alive Gaussians.
         alive_mask = ~dead_mask 
         dead_indices = dead_mask.nonzero(as_tuple=True)[0]
         alive_indices = alive_mask.nonzero(as_tuple=True)[0]
@@ -533,7 +554,8 @@ class GaussianModel:
         if alive_indices.shape[0] <= 0:
             return
 
-        # sample from alive ones based on opacity
+        # it samples new Gaussians from the alive ones based on their opacity (the probability of each Gaussian being selected). 
+        # this is essentially importance sampling, where more important (higher opacity) Gaussians are more likely to be sampled.
         probs = (self.get_opacity[alive_indices, 0]) 
         reinit_idx, ratio = self._sample_alives(alive_indices=alive_indices, probs=probs, num=dead_indices.shape[0])
 
@@ -552,6 +574,8 @@ class GaussianModel:
         self.replace_tensors_to_optimizer(inds=reinit_idx) 
         
 
+    # this function adds new Gaussians to the model to meet a target number (cap_max),
+    # by calculating how many new Gaussians need to be added based on the current number of Gaussians.
     def add_new_gs(self, cap_max):
         current_num_points = self._opacity.shape[0]
         target_num = min(cap_max, int(1.05 * current_num_points))
@@ -560,6 +584,7 @@ class GaussianModel:
         if num_gs <= 0:
             return 0
 
+        # it samples from the existing Gaussians based on their opacity to add new ones.
         probs = self.get_opacity.squeeze(-1) 
         add_idx, ratio = self._sample_alives(probs=probs, num=num_gs)
 
