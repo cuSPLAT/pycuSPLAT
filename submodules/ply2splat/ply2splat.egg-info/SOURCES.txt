@@ -1,0 +1,8 @@
+setup.py
+ply2splat/__init__.py
+ply2splat/ply2splat.cpp
+ply2splat/tinyply.cpp
+ply2splat.egg-info/PKG-INFO
+ply2splat.egg-info/SOURCES.txt
+ply2splat.egg-info/dependency_links.txt
+ply2splat.egg-info/top_level.txt

@@ -6,3 +6,12 @@ diff_rasterization/diff_rast.egg-info
 diff_rasterization/dist
 .splat
 .ply
+
+build/
+*.so
+*.o
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
