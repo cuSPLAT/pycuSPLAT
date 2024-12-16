@@ -101,7 +101,7 @@ def training(dataset, opt, pipe, saving_iterations, MCMC=False):
 
             if MCMC:
                 if iteration < opt.densify_until_iter and iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                    print("INSIDE MCMC ...")
+                    # print("INSIDE MCMC ...")
                     dead_mask = (gaussians.get_opacity <= 0.005).squeeze(-1)
                     gaussians.relocate_gs(dead_mask=dead_mask)
                     gaussians.add_new_gs(cap_max=args.cap_max)

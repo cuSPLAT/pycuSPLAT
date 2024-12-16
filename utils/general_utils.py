@@ -143,5 +143,4 @@ for n in range(N_max):
 
 def compute_relocation_cuda(opacity_old, scale_old, N):
     N.clamp_(min=1, max=N_max-1)
-    print("zzzzzzzzzzzzz")
     return compute_relocation(opacity_old, scale_old, N, binoms, N_max)
