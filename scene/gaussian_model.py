@@ -600,7 +600,8 @@ class GaussianModel:
         self._opacity[add_idx] = new_opacity
         self._scaling[add_idx] = new_scaling
 
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, reset_params=False)
+        # self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, reset_params=False)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_tmp_radii)
         self.replace_tensors_to_optimizer(inds=add_idx)
 
         return num_gs
