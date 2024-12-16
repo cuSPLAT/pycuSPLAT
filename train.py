@@ -122,7 +122,6 @@ def training(dataset, opt, pipe, saving_iterations, MCMC=False):
                     gaussians._xyz.add_(noise)
 
             else:
-                print(f"MCMC: 'for debugging' {MCMC}")
                 # Densification
                 if iteration < opt.densify_until_iter:
                     # Keep track of max radii in image-space for pruning
